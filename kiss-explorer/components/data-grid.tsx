@@ -12,19 +12,68 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { X, Loader2 } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import { useStore } from "@/lib/store"
 import { useEffect } from "react"
+// import { fetchTableData } from "@/lib/actions" // This line is removed because fetchTableData is no longer used.
 
+
+// Componente para mostrar los datos en una tabla interactiva
 export function DataGrid() {
   const { isOver, setNodeRef } = useDroppable({
     id: "grid",
   })
-  const { selectedColumns, removeColumn, data, loading, error, fetchData } = useStore()
+  const { 
+    selectedColumns, 
+    filters, 
+    removeColumn, 
+    data, 
+    isLoading, 
+    error,
+    setData, 
+    setLoading, 
+    setError 
+  } = useStore()
 
+  // Efecto para cargar datos cuando cambian las columnas o filtros
   useEffect(() => {
-    fetchData()
-  }, [selectedColumns, fetchData])
+    async function loadData() {
+      if (selectedColumns.length === 0) {
+        setData([])
+        return
+      }
+
+      setLoading(true)
+      setError(null)
+
+      try {
+        const response = await fetch('/api/data', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            columns: selectedColumns,
+            filters: filters,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Error al cargar los datos')
+        }
+
+        const result = await response.json()
+        setData(result)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Error fetching data')
+        setData([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [selectedColumns, filters, setData, setLoading, setError])
 
   return (
     <Card>
@@ -47,12 +96,12 @@ export function DataGrid() {
         </div>
       </CardHeader>
       <CardContent ref={setNodeRef} className={isOver ? "bg-muted/50" : ""}>
-        {loading ? (
-          <div className="flex justify-center p-4">
+        {error ? (
+          <div className="text-center p-4 text-red-500">{error}</div>
+        ) : isLoading ? (
+          <div className="flex justify-center items-center p-8">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
-        ) : error ? (
-          <div className="text-center text-destructive p-4">{error}</div>
         ) : data.length > 0 ? (
           <div className="rounded-md border">
             <Table>
@@ -69,18 +118,22 @@ export function DataGrid() {
                 {data.map((row, i) => (
                   <TableRow key={i}>
                     {selectedColumns.map((column) => (
-                      <TableCell key={column}>{row[column] || '-'}</TableCell>
+                      <TableCell key={column}>
+                        {row[column.split(".")[1]] ?? '-'}
+                      </TableCell>
                     ))}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+        ) : selectedColumns.length > 0 ? (
+          <div className="text-center p-4 text-muted-foreground">
+            No se encontraron datos
+          </div>
         ) : (
-          <div className="text-center text-muted-foreground p-4">
-            {selectedColumns.length === 0 
-              ? 'Arrastra columnas aquí para ver los datos'
-              : 'No hay datos disponibles'}
+          <div className="text-center p-4 text-muted-foreground">
+            Selecciona columnas para visualizar datos
           </div>
         )}
       </CardContent>

@@ -9,21 +9,23 @@ interface Store {
   selectedColumns: string[]
   filters: Filter[]
   data: any[]
-  loading: boolean
+  isLoading: boolean
   error: string | null
   addColumnToGrid: (column: string) => void
   removeColumn: (column: string) => void
   addColumnToFilter: (column: string) => void
   removeFilter: (column: string) => void
   updateFilterValue: (column: string, value: string) => void
-  fetchData: () => Promise<void>
+  setData: (data: any[]) => void
+  setLoading: (loading: boolean) => void
+  setError: (error: string | null) => void
 }
 
-export const useStore = create<Store>((set, get) => ({
+export const useStore = create<Store>((set) => ({
   selectedColumns: [],
   filters: [],
   data: [],
-  loading: false,
+  isLoading: false,
   error: null,
   addColumnToGrid: (column) =>
     set((state) => ({
@@ -47,35 +49,8 @@ export const useStore = create<Store>((set, get) => ({
         f.column === column ? { ...f, value } : f
       ),
     })),
-  fetchData: async () => {
-    const state = get()
-    if (state.selectedColumns.length === 0) {
-      set({ data: [], loading: false })
-      return
-    }
-
-    set({ loading: true, error: null })
-    try {
-      const response = await fetch('/api/data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          columns: state.selectedColumns,
-          filters: state.filters.filter(f => f.value),
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Error fetching data')
-      }
-
-      const { data } = await response.json()
-      set({ data, loading: false })
-    } catch (error) {
-      set({ error: 'Error fetching data', loading: false })
-    }
-  },
+  setData: (data) => set({ data }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
 }))
 
